@@ -1,0 +1,158 @@
+export const defaultQuizzes = [
+  {
+    id: "1",
+    title: "Science Basics",
+    description: "Test your knowledge about basic science concepts",
+    category: "Science",
+    difficulty: "Easy",
+    questions: [
+      {
+        id: "q1",
+        text: "What is the chemical symbol for Gold?",
+        options: ["Gd", "Au", "Go", "Gl"],
+        correctAnswer: 1,
+      },
+      {
+        id: "q2",
+        text: "Which planet is known as the Red Planet?",
+        options: ["Venus", "Mars", "Mercury", "Jupiter"],
+        correctAnswer: 1,
+      },
+      {
+        id: "q3",
+        text: "What is the process by which plants make their own food?",
+        options: ["Respiration", "Fermentation", "Photosynthesis", "Digestion"],
+        correctAnswer: 2,
+      },
+      {
+        id: "q4",
+        text: "How many bones are there in the adult human body?",
+        options: ["186", "206", "226", "246"],
+        correctAnswer: 1,
+      },
+      {
+        id: "q5",
+        text: "What is the speed of light?",
+        options: ["300,000 m/s", "150,000 m/s", "450,000 m/s", "600,000 m/s"],
+        correctAnswer: 0,
+      },
+    ],
+  },
+  {
+    id: "2",
+    title: "World Geography",
+    description: "Challenge yourself with geography questions",
+    category: "Geography",
+    difficulty: "Medium",
+    questions: [
+      {
+        id: "q1",
+        text: "What is the capital of Australia?",
+        options: ["Sydney", "Melbourne", "Canberra", "Brisbane"],
+        correctAnswer: 2,
+      },
+      {
+        id: "q2",
+        text: "Which is the largest ocean in the world?",
+        options: ["Atlantic Ocean", "Pacific Ocean", "Indian Ocean", "Arctic Ocean"],
+        correctAnswer: 1,
+      },
+      {
+        id: "q3",
+        text: "What is the highest mountain in the world?",
+        options: ["K2", "Mount Everest", "Kangchenjunga", "Lhotse"],
+        correctAnswer: 1,
+      },
+      {
+        id: "q4",
+        text: "How many continents are there?",
+        options: ["5", "6", "7", "8"],
+        correctAnswer: 2,
+      },
+      {
+        id: "q5",
+        text: "Which country has the most population?",
+        options: ["India", "China", "United States", "Indonesia"],
+        correctAnswer: 0,
+      },
+    ],
+  },
+  {
+    id: "3",
+    title: "Sports Trivia",
+    description: "Test your sports knowledge",
+    category: "Sports",
+    difficulty: "Medium",
+    questions: [
+      {
+        id: "q1",
+        text: 'In which sport is a "birdie" a term?',
+        options: ["Tennis", "Cricket", "Golf", "Badminton"],
+        correctAnswer: 2,
+      },
+      {
+        id: "q2",
+        text: "How many players are there in a basketball team on the court?",
+        options: ["4", "5", "6", "7"],
+        correctAnswer: 1,
+      },
+      {
+        id: "q3",
+        text: "What is the maximum break in snooker?",
+        options: ["100", "147", "150", "180"],
+        correctAnswer: 1,
+      },
+      {
+        id: "q4",
+        text: "Which country hosted the 2022 FIFA World Cup?",
+        options: ["Russia", "Qatar", "France", "Brazil"],
+        correctAnswer: 1,
+      },
+      {
+        id: "q5",
+        text: 'In tennis, what does "40-40" equal?',
+        options: ["Match point", "Deuce", "Advantage", "Game set"],
+        correctAnswer: 1,
+      },
+    ],
+  },
+  {
+    id: "4",
+    title: "History Challenge",
+    description: "Journey through important historical events",
+    category: "History",
+    difficulty: "Hard",
+    questions: [
+      {
+        id: "q1",
+        text: "In which year did the Titanic sink?",
+        options: ["1910", "1912", "1915", "1920"],
+        correctAnswer: 1,
+      },
+      {
+        id: "q2",
+        text: "Who was the first President of the United States?",
+        options: ["Thomas Jefferson", "George Washington", "John Adams", "Benjamin Franklin"],
+        correctAnswer: 1,
+      },
+      {
+        id: "q3",
+        text: "In which year did World War II end?",
+        options: ["1943", "1944", "1945", "1946"],
+        correctAnswer: 2,
+      },
+      {
+        id: "q4",
+        text: "Who wrote the Declaration of Independence?",
+        options: ["Benjamin Franklin", "John Adams", "Thomas Jefferson", "James Madison"],
+        correctAnswer: 2,
+      },
+      {
+        id: "q5",
+        text: "What was the ancient name for Turkey?",
+        options: ["Anatolia", "Mesopotamia", "Persia", "Babylon"],
+        correctAnswer: 0,
+      },
+    ],
+  },
+]
