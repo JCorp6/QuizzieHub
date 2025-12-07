@@ -1,40 +1,58 @@
-import { ref, set, get, onValue, update } from "firebase/database"
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  updateDoc, 
+  query, 
+  where, 
+  onSnapshot,
+  Timestamp,
+  increment,
+  deleteField,
+  deleteDoc,
+  serverTimestamp // Tambahkan ini
+} from "firebase/firestore"
 import type { User } from "firebase/auth"
-import { database } from "./firebase"
+import { db } from "./firebase"
 
 // Generate room code
 const generateRoomCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase()
 }
 
+// ----------------------------------------------------
+// CREATE ROOM - PERBAIKAN: Host tidak ditambahkan sebagai player
+// ----------------------------------------------------
 export const createMultiplayerRoom = async (user: User, quiz: any) => {
   try {
     const roomId = generateRoomCode()
-    const roomRef = ref(database, `multiplayer_rooms/${roomId}`)
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
 
     const room = {
       id: roomId,
-      quiz,
+      quiz: {
+        ...quiz,
+        defaultTimeLimit: quiz.defaultTimeLimit || 30 // Default time 30 detik
+      },
       host: {
         uid: user.uid,
         displayName: user.displayName || "Anonymous",
         email: user.email,
       },
-      players: [
-        {
-          uid: user.uid,
-          displayName: user.displayName || "Anonymous",
-          email: user.email,
-          score: 0,
-          answeredQuestions: 0,
-          currentQuestion: 0,
-        },
-      ],
+      // HANYA players object untuk pemain, host TIDAK dimasukkan
+      players: {}, // Kosong di awal
       status: "waiting",
-      createdAt: new Date().toISOString(),
+      createdAt: Timestamp.fromDate(new Date()),
+      settings: {
+        hostCanPlay: false, // Default: host tidak bisa main
+        timePerQuestion: quiz.defaultTimeLimit || 30,
+        autoProceed: true
+      }
     }
 
-    await set(roomRef, room)
+    await setDoc(roomDocRef, room)
     return room
   } catch (error) {
     console.error("Error creating multiplayer room:", error)
@@ -42,89 +60,136 @@ export const createMultiplayerRoom = async (user: User, quiz: any) => {
   }
 }
 
+// ----------------------------------------------------
+// JOIN ROOM - PERBAIKAN: Hanya player yang join, host tidak boleh join
+// ----------------------------------------------------
 export const joinMultiplayerRoom = async (roomId: string, user: User) => {
   try {
-    const roomRef = ref(database, `multiplayer_rooms/${roomId}`)
-    const snapshot = await get(roomRef)
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+    const snapshot = await getDoc(roomDocRef)
 
     if (!snapshot.exists()) {
       throw new Error("Room not found")
     }
 
-    const room = snapshot.val()
+    const room = snapshot.data()!
+    
+    // Cek jika user adalah host (host tidak bisa join sebagai player)
+    if (room.host.uid === user.uid) {
+      throw new Error("Host tidak bisa join sebagai player")
+    }
+
+    // Cek jika sudah ada di room
+    if (room.players && room.players[user.uid]) {
+      return { ...room, players: { ...room.players } }
+    }
 
     const newPlayer = {
       uid: user.uid,
       displayName: user.displayName || "Anonymous",
-      email: user.email,
       score: 0,
       answeredQuestions: 0,
       currentQuestion: 0,
+      hasAnsweredCurrent: false,
+      isReady: true,
+      joinedAt: Timestamp.now()
     }
 
-    const updatedPlayers = [...room.players, newPlayer]
-    await update(roomRef, { players: updatedPlayers })
+    const playerUpdate = {
+      [`players.${user.uid}`]: newPlayer
+    }
 
-    return { ...room, players: updatedPlayers }
+    await updateDoc(roomDocRef, playerUpdate)
+
+    return { 
+      ...room, 
+      players: { 
+        ...room.players, 
+        [user.uid]: newPlayer 
+      } 
+    }
   } catch (error) {
     console.error("Error joining multiplayer room:", error)
     throw error
   }
 }
 
+// ----------------------------------------------------
+// GET ACTIVE ROOMS - PERBAIKAN: Exclude host dari player count
+// ----------------------------------------------------
 export const getActiveRooms = async () => {
   try {
-    const roomsRef = ref(database, "multiplayer_rooms")
-    const snapshot = await get(roomsRef)
+    const roomsColRef = collection(db, "multiplayer_rooms")
+    const q = query(roomsColRef, where("status", "==", "waiting"))
+    const querySnapshot = await getDocs(q)
 
-    if (snapshot.exists()) {
-      const data = snapshot.val()
-      return Object.keys(data)
-        .map((key) => ({
-          ...data[key],
-          id: key,
-        }))
-        .filter((room) => room.status === "waiting")
-    }
-    return []
+    const rooms: any[] = []
+    querySnapshot.forEach((doc) => {
+      const roomData = doc.data()
+      
+      // Filter out host dari players
+      const playersArray = Object.values(roomData.players || {})
+        .filter((player: any) => player.uid !== roomData.host.uid)
+      
+      rooms.push({ 
+        ...roomData, 
+        id: doc.id, 
+        players: playersArray,
+        playerCount: playersArray.length
+      })
+    })
+
+    return rooms
   } catch (error) {
     console.error("Error getting active rooms:", error)
     return []
   }
 }
 
-export const listenToRoomChanges = (callback: (rooms: any[]) => void) => {
-  try {
-    const roomsRef = ref(database, "multiplayer_rooms")
-
-    const unsubscribe = onValue(roomsRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val()
-        const rooms = Object.keys(data).map((key) => ({
-          ...data[key],
-          id: key,
-        }))
-        callback(rooms)
-      } else {
-        callback([])
-      }
-    })
-
-    return unsubscribe
-  } catch (error) {
-    console.error("Error listening to room changes:", error)
-  }
-}
-
+// ----------------------------------------------------
+// LISTEN TO ROOM PLAYERS - PERBAIKAN: Exclude host
+// ----------------------------------------------------
 export const listenToRoomPlayers = (roomId: string, callback: (players: any[]) => void) => {
   try {
-    const playersRef = ref(database, `multiplayer_rooms/${roomId}/players`)
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
 
-    const unsubscribe = onValue(playersRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val()
-        callback(Array.isArray(data) ? data : [data])
+    const unsubscribe = onSnapshot(roomDocRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const roomData = docSnapshot.data()
+        console.log("📡 RAW ROOM DATA:", roomData)
+        
+        const playersMap = roomData.players || {}
+        console.log("📡 RAW PLAYERS MAP:", playersMap)
+        
+        // Convert map to array dan filter
+        const playersArray = Object.values(playersMap)
+          .filter((player: any) => {
+            const isValid = player && player.uid && player.uid !== roomData.host?.uid
+            if (!isValid) {
+              console.log("❌ Filtered out player:", player)
+            }
+            return isValid
+          })
+          .map((player: any) => ({
+            ...player,
+            // 🚨 Pastikan boolean conversion
+            hasAnsweredCurrent: player.hasAnsweredCurrent === true,
+            isReady: player.isReady !== false,
+            score: player.score || 0,
+            currentQuestion: player.currentQuestion || 0,
+            answerTime: player.answerTime || 0
+          }))
+        
+        console.log("📡 PROCESSED PLAYERS:", playersArray.map(p => ({
+          uid: p.uid,
+          name: p.displayName,
+          hasAnswered: p.hasAnsweredCurrent,
+          score: p.score
+        })))
+        
+        callback(playersArray)
       } else {
+        console.log("📡 Room not found")
         callback([])
       }
     })
@@ -132,9 +197,68 @@ export const listenToRoomPlayers = (roomId: string, callback: (players: any[]) =
     return unsubscribe
   } catch (error) {
     console.error("Error listening to room players:", error)
+    return () => {}
   }
 }
 
+// ----------------------------------------------------
+// UPDATE PLAYER SCORE - PERBAIKAN: Atomic update dengan answerTime
+// ----------------------------------------------------
+export const updatePlayerScore = async (
+  roomId: string, 
+  userId: string, 
+  scoreGained: number,
+  answerTime?: number
+) => {
+  try {
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+
+    const updateData: any = {
+      [`players.${userId}.score`]: increment(scoreGained),
+      [`players.${userId}.answeredQuestions`]: increment(1),
+      [`players.${userId}.hasAnsweredCurrent`]: true,
+      [`players.${userId}.lastAnswered`]: Timestamp.now(),
+      [`players.${userId}.updatedAt`]: serverTimestamp()
+    }
+
+    // Tambahkan answerTime jika ada
+    if (answerTime !== undefined) {
+      updateData[`players.${userId}.answerTime`] = answerTime
+    }
+
+    await updateDoc(roomDocRef, updateData)
+  } catch (error) {
+    console.error("Error updating player score:", error)
+    throw error
+  }
+}
+
+// ----------------------------------------------------
+// UPDATE PLAYER CURRENT QUESTION - PERBAIKAN
+// ----------------------------------------------------
+export const updatePlayerCurrentQuestion = async (
+  roomId: string,
+  userId: string,
+  currentQuestion: number,
+  hasAnsweredCurrent: boolean = false
+) => {
+  try {
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+    
+    await updateDoc(roomDocRef, {
+      [`players.${userId}.currentQuestion`]: currentQuestion,
+      [`players.${userId}.hasAnsweredCurrent`]: hasAnsweredCurrent,
+      [`players.${userId}.updatedAt`]: serverTimestamp()
+    })
+  } catch (error) {
+    console.error("Error updating player current question:", error)
+    throw error
+  }
+}
+
+// ----------------------------------------------------
+// SUBMIT MULTIPLAYER ANSWER - PERBAIKAN: dengan answerTime
+// ----------------------------------------------------
 export const submitMultiplayerAnswer = async (
   roomId: string,
   userId: string,
@@ -144,33 +268,339 @@ export const submitMultiplayerAnswer = async (
     correct: boolean
     score: number
     timestamp: number
-  },
+    answerTime?: number
+  }
 ) => {
   try {
-    const answersRef = ref(database, `multiplayer_rooms/${roomId}/answers/${userId}`)
-    await set(answersRef, answer)
+    // Gunakan kombinasi userId_questionIndex untuk unique ID
+    const answerId = `${userId}_${answer.questionIndex}`
+    const answerDocRef = doc(db, "multiplayer_rooms", roomId, "answers", answerId)
+    
+    await setDoc(answerDocRef, {
+      ...answer,
+      userId: userId,
+      roomId: roomId,
+      answerTime: answer.answerTime || 0,
+      submittedAt: Timestamp.now(),
+      timestamp: answer.timestamp ? Timestamp.fromMillis(answer.timestamp) : Timestamp.now()
+    })
   } catch (error) {
     console.error("Error submitting multiplayer answer:", error)
     throw error
   }
 }
 
-export const updatePlayerScore = async (roomId: string, userId: string, score: number) => {
+// ----------------------------------------------------
+// UPDATE PLAYER WITH TIME - FUNGSI BARU
+// ----------------------------------------------------
+export const updatePlayerWithTime = async (
+  roomId: string,
+  userId: string,
+  data: {
+    hasAnsweredCurrent?: boolean;
+    answerTime?: number;
+    score?: number;
+    currentQuestion?: number;
+  }
+) => {
   try {
-    const playerRef = ref(database, `multiplayer_rooms/${roomId}/players`)
-    const snapshot = await get(playerRef)
-
-    if (snapshot.exists()) {
-      const players = snapshot.val()
-      const playerIndex = players.findIndex((p: any) => p.uid === userId)
-
-      if (playerIndex !== -1) {
-        players[playerIndex].score = score
-        await update(ref(database, `multiplayer_rooms/${roomId}`), { players })
-      }
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+    
+    const updateData: any = {
+      [`players.${userId}.updatedAt`]: serverTimestamp()
     }
+    
+    if (data.hasAnsweredCurrent !== undefined) {
+      updateData[`players.${userId}.hasAnsweredCurrent`] = data.hasAnsweredCurrent
+    }
+    
+    if (data.answerTime !== undefined) {
+      updateData[`players.${userId}.answerTime`] = data.answerTime
+    }
+    
+    if (data.score !== undefined) {
+      updateData[`players.${userId}.score`] = increment(data.score)
+    }
+    
+    if (data.currentQuestion !== undefined) {
+      updateData[`players.${userId}.currentQuestion`] = data.currentQuestion
+    }
+    
+    await updateDoc(roomDocRef, updateData)
   } catch (error) {
-    console.error("Error updating player score:", error)
+    console.error("Error updating player with time:", error)
     throw error
+  }
+}
+
+// ----------------------------------------------------
+// SET ROOM SETTINGS - FUNGSI BARU
+// ----------------------------------------------------
+export const setRoomSettings = async (
+  roomId: string,
+  settings: {
+    hostCanPlay?: boolean
+    timePerQuestion?: number
+    autoProceed?: boolean
+  }
+) => {
+  try {
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+    
+    await updateDoc(roomDocRef, {
+      settings: {
+        hostCanPlay: false, // Force host tidak bisa main
+        timePerQuestion: settings.timePerQuestion || 30,
+        autoProceed: settings.autoProceed !== false,
+        updatedAt: serverTimestamp()
+      }
+    })
+  } catch (error) {
+    console.error("Error setting room settings:", error)
+    throw error
+  }
+}
+
+// ----------------------------------------------------
+// START MULTIPLAYER GAME - PERBAIKAN: Reset player states
+// ----------------------------------------------------
+export const startMultiplayerGame = async (roomId: string) => {
+  try {
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+    const snapshot = await getDoc(roomDocRef)
+    
+    if (!snapshot.exists()) {
+      throw new Error("Room not found")
+    }
+    
+    const room = snapshot.data()
+    const players = room.players || {}
+    
+    // Reset semua player states
+    const resetUpdates: any = {}
+    Object.keys(players).forEach(playerId => {
+      resetUpdates[`players.${playerId}.hasAnsweredCurrent`] = false
+      resetUpdates[`players.${playerId}.currentQuestion`] = 0
+      resetUpdates[`players.${playerId}.answerTime`] = null
+    })
+    
+    await updateDoc(roomDocRef, {
+      ...resetUpdates,
+      status: "playing",
+      currentQuestionIndex: 0,
+      startTime: Timestamp.now(),
+      lastUpdated: serverTimestamp()
+    })
+  } catch (error) {
+    console.error("Error starting multiplayer game:", error)
+    throw error
+  }
+}
+
+// ----------------------------------------------------
+// RESET PLAYERS FOR NEXT QUESTION - FUNGSI BARU
+// ----------------------------------------------------
+export const resetPlayersForNextQuestion = async (roomId: string) => {
+  try {
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+    const snapshot = await getDoc(roomDocRef)
+    
+    if (!snapshot.exists()) {
+      throw new Error("Room not found")
+    }
+    
+    const room = snapshot.data()
+    const players = room.players || {}
+    
+    const resetUpdates: any = {}
+    Object.keys(players).forEach(playerId => {
+      resetUpdates[`players.${playerId}.hasAnsweredCurrent`] = false
+      resetUpdates[`players.${playerId}.answerTime`] = null
+    })
+    
+    await updateDoc(roomDocRef, {
+      ...resetUpdates,
+      lastUpdated: serverTimestamp()
+    })
+  } catch (error) {
+    console.error("Error resetting players:", error)
+    throw error
+  }
+}
+
+// ----------------------------------------------------
+// LEAVE ROOM - PERBAIKAN
+// ----------------------------------------------------
+export const leaveMultiplayerRoom = async (roomId: string, userId: string) => {
+  try {
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+    const snapshot = await getDoc(roomDocRef)
+    
+    if (!snapshot.exists()) {
+      return // Room sudah tidak ada
+    }
+    
+    const room = snapshot.data()
+    
+    // Jika host yang keluar, hapus room
+    if (room.host.uid === userId) {
+      await deleteDoc(roomDocRef)
+      console.log(`Room ${roomId} deleted by host`)
+      return
+    }
+    
+    // Jika player yang keluar, hapus dari players
+    await updateDoc(roomDocRef, {
+      [`players.${userId}`]: deleteField(),
+      lastUpdated: serverTimestamp()
+    })
+    
+  } catch (error) {
+    console.error("Error leaving room:", error)
+    throw error
+  }
+}
+
+// ----------------------------------------------------
+// LISTEN TO GAME START
+// ----------------------------------------------------
+export const listenToGameStart = (roomId: string, callback: (room: any) => void) => {
+  try {
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+    
+    const unsubscribe = onSnapshot(roomDocRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const roomData = docSnapshot.data()
+        // Filter host dari players sebelum dikirim
+        const players = roomData.players || {}
+        const filteredPlayers = Object.values(players)
+          .filter((player: any) => player.uid !== roomData.host.uid)
+        
+        callback({
+          ...roomData,
+          players: filteredPlayers
+        })
+      } else {
+        callback(null)
+      }
+    })
+    
+    return unsubscribe
+  } catch (error) {
+    console.error("Error listening to game start:", error)
+    return () => {}
+  }
+}
+
+// ----------------------------------------------------
+// LISTEN TO ROOM STATE
+// ----------------------------------------------------
+export const listenToRoomState = (roomId: string, callback: (roomData: any) => void) => {
+  try {
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+
+    const unsubscribe = onSnapshot(roomDocRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const roomData = docSnapshot.data()
+        callback(roomData)
+      } else {
+        callback(null)
+      }
+    })
+    
+    return unsubscribe
+  } catch (error) {
+    console.error("Error listening to room state:", error)
+    return () => {}
+  }
+}
+
+// ----------------------------------------------------
+// FINISH MULTIPLAYER GAME - PERBAIKAN: Simpan data hasil dengan benar
+// ----------------------------------------------------
+// ----------------------------------------------------
+// FINISH MULTIPLAYER GAME - PERBAIKAN: Simpan data host juga
+// ----------------------------------------------------
+export const finishMultiplayerGame = async (roomId: string) => {
+    try {
+        const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+        const snapshot = await getDoc(roomDocRef)
+        
+        if (!snapshot.exists()) {
+            throw new Error("Room not found")
+        }
+        
+        const roomData = snapshot.data()
+        const players = roomData.players || {}
+        
+        // 🎯 PERBAIKAN: HOST TIDAK DITAMBAHKAN SEBAGAI PLAYER
+        // Simpan hanya pemain asli (tanpa host)
+        const finalResults = { 
+            ...players 
+            // TIDAK ADA host di sini!
+        }
+        
+        console.log("🏁 Saving game results:", Object.keys(finalResults).length, "pemain")
+        
+        // Update status room menjadi 'finished'
+        await updateDoc(roomDocRef, {
+            status: "finished",
+            finishedAt: Timestamp.now(),
+            lastUpdated: serverTimestamp(),
+            results: finalResults,  // Hanya pemain
+            // players tetap seperti semula (tanpa host)
+        })
+
+        console.log(`✅ Game room ${roomId} finished successfully`)
+        
+    } catch (error) {
+        console.error("Error finishing multiplayer game:", error)
+        throw new Error("Gagal menyelesaikan permainan.")
+    }
+}
+
+// ----------------------------------------------------
+// CLEANUP ROOM
+// ----------------------------------------------------
+export const cleanupMultiplayerRoom = async (roomId: string) => {
+  try {
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
+    await deleteDoc(roomDocRef)
+    console.log(`Multiplayer room ${roomId} cleaned up/deleted.`)
+  } catch (error) {
+    console.error("Error cleaning up room:", error)
+  }
+}
+
+// ----------------------------------------------------
+// LISTEN TO ROOM CHANGES
+// ----------------------------------------------------
+export const listenToRoomChanges = (callback: (rooms: any[]) => void) => {
+  try {
+    const roomsColRef = collection(db, "multiplayer_rooms")
+    const q = query(roomsColRef, where("status", "==", "waiting"))
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const rooms: any[] = []
+      snapshot.forEach((doc) => {
+        const roomData = doc.data()
+        // Filter host dari players
+        const playersArray = Object.values(roomData.players || {})
+          .filter((player: any) => player.uid !== roomData.host.uid)
+        
+        rooms.push({ 
+          ...roomData, 
+          id: doc.id, 
+          players: playersArray,
+          playerCount: playersArray.length
+        })
+      })
+      callback(rooms)
+    })
+
+    return unsubscribe
+  } catch (error) {
+    console.error("Error listening to room changes:", error)
+    return () => {}
   }
 }
