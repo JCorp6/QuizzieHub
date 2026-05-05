@@ -124,7 +124,25 @@
   }
 }
 
-/* Add QuizzieHub animations */
+.animated-gradient-bg {
+    background: linear-gradient(35deg, #16213e, #0f3460, #533483, #a92070);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+}
+
+/* QuizzieHub animations */
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 @keyframes slideInUp {
   from {
     opacity: 0;
@@ -155,6 +173,27 @@
   }
 }
 
+@keyframes swoopIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
 .animate-slide-in {
   animation: slideInUp 0.5s ease-out;
 }
@@ -165,4 +204,12 @@
 
 .animate-flip {
   animation: flip 0.6s ease-in-out;
+}
+
+.animate-swoop-in {
+  animation: swoopIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }

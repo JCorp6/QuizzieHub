@@ -1,7 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import QuestionCard from "./QuestionCard"
+import { ArrowLeft, Star, Zap } from "lucide-react"
+import FeedbackOverlay from "./FeedbackOverlay"
 
 interface QuizPlayScreenProps {
   quiz: any
@@ -9,18 +11,85 @@ interface QuizPlayScreenProps {
   onBack: () => void
 }
 
+const Mascot = () => (
+  <div className="w-24 h-24 mx-auto mb-4 animate-float">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <g>
+        <path
+          d="M 50,10 C 27.9,10 10,27.9 10,50 C 10,72.1 27.9,90 50,90 C 72.1,90 90,72.1 90,50 C 90,27.9 72.1,10 50,10 Z"
+          fill="rgba(255, 255, 255, 0.1)"
+        />
+        <path
+          d="M 50,15 C 30.7,15 15,30.7 15,50 C 15,69.3 30.7,85 50,85 C 69.3,85 85,69.3 85,50 C 85,30.7 69.3,15 50,15 Z"
+          fill="#f3f4f6"
+          stroke="#E0E0E0"
+          strokeWidth="1"
+        />
+        <circle cx="38" cy="45" r="5" fill="#2c3e50" />
+        <circle cx="62" cy="45" r="5" fill="#2c3e50" />
+        <path
+          d="M 40 60 Q 50 70 60 60"
+          stroke="#2c3e50"
+          strokeWidth="4"
+          fill="none"
+          strokeLinecap="round"
+        />
+      </g>
+    </svg>
+  </div>
+)
+
 export default function QuizPlayScreen({ quiz, onFinish, onBack }: QuizPlayScreenProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
-  const [selectedAnswers, setSelectedAnswers] = useState<(number | null)[]>(new Array(quiz.questions.length).fill(null))
+  const [selectedAnswers, setSelectedAnswers] = useState<(number | null)[]>(
+    new Array(quiz.questions.length).fill(null),
+  )
   const [answered, setAnswered] = useState(false)
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [showFeedback, setShowFeedback] = useState(false)
+  const [isTimeUp, setIsTimeUp] = useState(false)
   const [allAnswers, setAllAnswers] = useState<any[]>([])
+  const [timeLeft, setTimeLeft] = useState(20) // 20 seconds per question
 
   const currentQuestion = quiz.questions[currentQuestionIndex]
-  const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100
+
+  useEffect(() => {
+    if (answered || showFeedback) return
+
+    if (timeLeft === 0) {
+      setIsTimeUp(true)
+      handleAnswer(-1) // Auto-submit with an incorrect answer
+      return
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft(prevTime => prevTime - 1)
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [timeLeft, answered, showFeedback])
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < quiz.questions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1)
+      setAnswered(false)
+      setShowFeedback(false)
+      setIsCorrect(null)
+      setIsTimeUp(false)
+      setTimeLeft(20) // Reset timer
+    } else {
+      onFinish({
+        score,
+        totalQuestions: quiz.questions.length,
+        streak,
+        answers: allAnswers,
+        quizTitle: quiz.title,
+        answeredQuestions: selectedAnswers,
+      })
+    }
+  }
 
   const handleAnswer = (answerIndex: number) => {
     if (answered) return
@@ -34,102 +103,113 @@ export default function QuizPlayScreen({ quiz, onFinish, onBack }: QuizPlayScree
     setAnswered(true)
     setShowFeedback(true)
 
+    let scoreGained = 0
     if (correct) {
-      setScore(score + 10)
+      scoreGained = 10 + Math.floor(timeLeft / 2) // Points based on time
+      setScore(score + scoreGained)
       setStreak(streak + 1)
-      setAllAnswers([...allAnswers, { questionId: currentQuestion.id, correct: true, streak }])
     } else {
       setStreak(0)
-      setAllAnswers([...allAnswers, { questionId: currentQuestion.id, correct: false }])
     }
-
-    setTimeout(() => {
-      if (currentQuestionIndex < quiz.questions.length - 1) {
-        setCurrentQuestionIndex(currentQuestionIndex + 1)
-        setAnswered(false)
-        setShowFeedback(false)
-        setIsCorrect(null)
-      } else {
-        onFinish({
-          score,
-          totalQuestions: quiz.questions.length,
-          streak,
-          answers: allAnswers,
-          quizTitle: quiz.title,
-          answeredQuestions: selected,
-        })
-      }
-    }, 1500)
+    
+    setAllAnswers([
+        ...allAnswers,
+        { questionId: currentQuestion.id, correct, scoreGained },
+    ])
   }
 
   return (
-    <div className="space-y-6 animate-slide-in">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-800">{quiz.title}</h2>
-          <button onClick={onBack} className="text-gray-600 hover:text-gray-800 font-semibold">
-            ← Back
-          </button>
+    <div className="flex flex-col min-h-screen w-full text-gray-800 p-4 sm:p-6 lg:p-8 bg-white">
+      {/* Top Bar */}
+      <header className="flex items-center justify-between w-full max-w-4xl mx-auto mb-4">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 px-4 py-2 font-bold bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+        >
+          <ArrowLeft size={20} />
+          <span>Exit</span>
+        </button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 font-bold text-lg">
+            <Star className="text-yellow-400" />
+            <span>{score}</span>
+          </div>
+          <div className="flex items-center gap-2 font-bold text-lg">
+            <Zap className="text-orange-400" />
+            <span>{streak}</span>
+          </div>
         </div>
+      </header>
 
-        {/* Progress Bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm text-gray-600 mb-2">
-            <span>
-              Question {currentQuestionIndex + 1} of {quiz.questions.length}
-            </span>
-            <span className="font-semibold">Score: {score}</span>
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col items-center justify-center w-full">
+        <div className="w-full max-w-2xl">
+          {/* Progress */}
+          <div className="mb-4">
+            <Mascot />
+            <div className="flex justify-between items-center mb-1">
+                <span className="font-bold text-sm opacity-80">
+                    Question {currentQuestionIndex + 1}/{quiz.questions.length}
+                </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-green-400 to-cyan-400 h-full rounded-full transition-all duration-300"
+                style={{ width: `${((currentQuestionIndex + 1) / quiz.questions.length) * 100}%` }}
+              ></div>
+            </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div
-              className="bg-gradient-to-r from-purple-600 to-blue-600 h-3 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            ></div>
+         
+          {/* Question Card */}
+          <div className="animate-swoop-in">
+             <QuestionCard
+                key={currentQuestion.id}
+                question={currentQuestion}
+                onAnswer={handleAnswer}
+                answered={answered}
+                selectedAnswer={selectedAnswers[currentQuestionIndex]}
+            />
           </div>
-        </div>
-      </div>
 
-      {/* Stats Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-gradient-to-br from-green-400 to-green-600 rounded-lg p-4 text-white">
-          <div className="text-xs font-semibold opacity-80">SCORE</div>
-          <div className="text-3xl font-bold">{score}</div>
         </div>
-        <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg p-4 text-white">
-          <div className="text-xs font-semibold opacity-80">STREAK</div>
-          <div className="text-3xl font-bold">🔥 {streak}</div>
+      </main>
+      
+      {/* Timer Bubble */}
+      <footer className="flex justify-center items-center w-full mt-4">
+         <div className="relative w-24 h-24 flex items-center justify-center">
+            <svg className="w-full h-full transform -rotate-90">
+                <circle
+                    className="text-gray-200"
+                    strokeWidth="8"
+                    stroke="currentColor"
+                    fill="transparent"
+                    r="40"
+                    cx="48"
+                    cy="48"
+                />
+                <circle
+                    className="text-green-400 transition-all duration-1000"
+                    strokeWidth="8"
+                    strokeDasharray={2 * Math.PI * 40}
+                    strokeDashoffset={(2 * Math.PI * 40) - ((timeLeft / 20) * (2 * Math.PI * 40))}
+                    stroke="currentColor"
+                    fill="transparent"
+                    r="40"
+                    cx="48"
+                    cy="48"
+                />
+            </svg>
+            <span className="absolute text-3xl font-bold">{timeLeft}</span>
         </div>
-        <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg p-4 text-white">
-          <div className="text-xs font-semibold opacity-80">PROGRESS</div>
-          <div className="text-3xl font-bold">
-            {currentQuestionIndex + 1}/{quiz.questions.length}
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg p-4 text-white">
-          <div className="text-xs font-semibold opacity-80">ACCURACY</div>
-          <div className="text-3xl font-bold">
-            {currentQuestionIndex > 0
-              ? Math.round(
-                  (selectedAnswers.filter((a, i) => a === quiz.questions[i]?.correctAnswer).length /
-                    currentQuestionIndex) *
-                    100,
-                )
-              : 0}
-            %
-          </div>
-        </div>
-      </div>
+      </footer>
 
-      {/* Question Card */}
-      <QuestionCard
-        question={currentQuestion}
-        onAnswer={handleAnswer}
-        answered={answered}
-        selectedAnswer={selectedAnswers[currentQuestionIndex]}
-        isCorrect={isCorrect}
-        showFeedback={showFeedback}
-      />
+      {showFeedback && (
+        <FeedbackOverlay
+          isCorrect={isCorrect!}
+          isTimeUp={isTimeUp}
+          onTimeout={handleNextQuestion}
+        />
+      )}
     </div>
   )
 }

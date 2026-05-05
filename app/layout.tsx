@@ -2,6 +2,10 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { Suspense } from "react"
+import LoadingSpinner from "@/components/LoadingSpinner"
+import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
 const _geistSans = Geist({ subsets: ["latin"] })
@@ -36,11 +40,21 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${_geistSans.className} antialiased bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 min-h-screen`}
+        className={`${_geistSans.className} antialiased`}
       >
-        {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <Suspense fallback={<LoadingSpinner />}>
+            {children}
+          </Suspense>
+          <Toaster />
+        </ThemeProvider>
         <Analytics />
       </body>
     </html>

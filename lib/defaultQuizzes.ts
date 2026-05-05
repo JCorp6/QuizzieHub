@@ -5,6 +5,11 @@ export const defaultQuizzes = [
     description: "Test your knowledge about basic science concepts",
     category: "Science",
     difficulty: "Easy",
+    imageUrl: "/placeholder.jpg",
+    createdBy: "QuizzieHub",
+    defaultTimeLimit: 30,
+    timesPlayed: Math.floor(Math.random() * 900) + 100,
+    averageScore: Math.floor(Math.random() * 31) + 60,
     questions: [
       {
         id: "q1",
@@ -18,24 +23,6 @@ export const defaultQuizzes = [
         options: ["Venus", "Mars", "Mercury", "Jupiter"],
         correctAnswer: 1,
       },
-      {
-        id: "q3",
-        text: "What is the process by which plants make their own food?",
-        options: ["Respiration", "Fermentation", "Photosynthesis", "Digestion"],
-        correctAnswer: 2,
-      },
-      {
-        id: "q4",
-        text: "How many bones are there in the adult human body?",
-        options: ["186", "206", "226", "246"],
-        correctAnswer: 1,
-      },
-      {
-        id: "q5",
-        text: "What is the speed of light?",
-        options: ["300,000 m/s", "150,000 m/s", "450,000 m/s", "600,000 m/s"],
-        correctAnswer: 0,
-      },
     ],
   },
   {
@@ -44,6 +31,11 @@ export const defaultQuizzes = [
     description: "Challenge yourself with geography questions",
     category: "Geography",
     difficulty: "Medium",
+    imageUrl: "/placeholder.jpg",
+    createdBy: "QuizzieHub",
+    defaultTimeLimit: 30,
+    timesPlayed: Math.floor(Math.random() * 900) + 100,
+    averageScore: Math.floor(Math.random() * 31) + 60,
     questions: [
       {
         id: "q1",
@@ -57,24 +49,6 @@ export const defaultQuizzes = [
         options: ["Atlantic Ocean", "Pacific Ocean", "Indian Ocean", "Arctic Ocean"],
         correctAnswer: 1,
       },
-      {
-        id: "q3",
-        text: "What is the highest mountain in the world?",
-        options: ["K2", "Mount Everest", "Kangchenjunga", "Lhotse"],
-        correctAnswer: 1,
-      },
-      {
-        id: "q4",
-        text: "How many continents are there?",
-        options: ["5", "6", "7", "8"],
-        correctAnswer: 2,
-      },
-      {
-        id: "q5",
-        text: "Which country has the most population?",
-        options: ["India", "China", "United States", "Indonesia"],
-        correctAnswer: 0,
-      },
     ],
   },
   {
@@ -83,6 +57,11 @@ export const defaultQuizzes = [
     description: "Test your sports knowledge",
     category: "Sports",
     difficulty: "Medium",
+    imageUrl: "/placeholder.jpg",
+    createdBy: "QuizzieHub",
+    defaultTimeLimit: 30,
+    timesPlayed: Math.floor(Math.random() * 900) + 100,
+    averageScore: Math.floor(Math.random() * 31) + 60,
     questions: [
       {
         id: "q1",
@@ -96,24 +75,6 @@ export const defaultQuizzes = [
         options: ["4", "5", "6", "7"],
         correctAnswer: 1,
       },
-      {
-        id: "q3",
-        text: "What is the maximum break in snooker?",
-        options: ["100", "147", "150", "180"],
-        correctAnswer: 1,
-      },
-      {
-        id: "q4",
-        text: "Which country hosted the 2022 FIFA World Cup?",
-        options: ["Russia", "Qatar", "France", "Brazil"],
-        correctAnswer: 1,
-      },
-      {
-        id: "q5",
-        text: 'In tennis, what does "40-40" equal?',
-        options: ["Match point", "Deuce", "Advantage", "Game set"],
-        correctAnswer: 1,
-      },
     ],
   },
   {
@@ -122,6 +83,11 @@ export const defaultQuizzes = [
     description: "Journey through important historical events",
     category: "History",
     difficulty: "Hard",
+    imageUrl: "/placeholder.jpg",
+    createdBy: "QuizzieHub",
+    defaultTimeLimit: 30,
+    timesPlayed: Math.floor(Math.random() * 900) + 100,
+    averageScore: Math.floor(Math.random() * 31) + 60,
     questions: [
       {
         id: "q1",
@@ -135,24 +101,58 @@ export const defaultQuizzes = [
         options: ["Thomas Jefferson", "George Washington", "John Adams", "Benjamin Franklin"],
         correctAnswer: 1,
       },
+    ],
+  },
+  {
+    id: "5",
+    title: "Movie Buffs",
+    description: "How well do you know your movies?",
+    category: "Movies",
+    difficulty: "Medium",
+    imageUrl: "/placeholder.jpg",
+    createdBy: "QuizzieHub",
+    defaultTimeLimit: 30,
+    timesPlayed: Math.floor(Math.random() * 900) + 100,
+    averageScore: Math.floor(Math.random() * 31) + 60,
+    questions: [
       {
-        id: "q3",
-        text: "In which year did World War II end?",
-        options: ["1943", "1944", "1945", "1946"],
-        correctAnswer: 2,
+        id: "q1",
+        text: "Who directed the movie 'Parasite'?",
+        options: ["Quentin Tarantino", "Bong Joon-ho", "Christopher Nolan", "Martin Scorsese"],
+        correctAnswer: 1,
       },
       {
-        id: "q4",
-        text: "Who wrote the Declaration of Independence?",
-        options: ["Benjamin Franklin", "John Adams", "Thomas Jefferson", "James Madison"],
-        correctAnswer: 2,
-      },
-      {
-        id: "q5",
-        text: "What was the ancient name for Turkey?",
-        options: ["Anatolia", "Mesopotamia", "Persia", "Babylon"],
-        correctAnswer: 0,
+        id: "q2",
+        text: "What is the highest-grossing film of all time (unadjusted for inflation)?",
+        options: ["Titanic", "Avatar", "Avengers: Endgame", "Star Wars: The Force Awakens"],
+        correctAnswer: 1,
       },
     ],
   },
-]
+  {
+    id: "6",
+    title: "Music Legends",
+    description: "From rock to pop, test your music knowledge.",
+    category: "Music",
+    difficulty: "Easy",
+    imageUrl: "/placeholder.jpg",
+    createdBy: "QuizzieHub",
+    defaultTimeLimit: 30,
+    timesPlayed: Math.floor(Math.random() * 900) + 100,
+    averageScore: Math.floor(Math.random() * 31) + 60,
+    questions: [
+      {
+        id: "q1",
+        text: "Who is known as the 'King of Pop'?",
+        options: ["Elvis Presley", "Michael Jackson", "Prince", "Freddie Mercury"],
+        correctAnswer: 1,
+      },
+      {
+        id: "q2",
+        text: "Which band released the album 'Abbey Road'?",
+        options: ["The Rolling Stones", "The Who", "The Beatles", "Led Zeppelin"],
+        correctAnswer: 2,
+      },
+    ],
+  },
+];

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { User } from "firebase/auth"
 import { doc, getDoc, collection, getDocs, query, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import Lottie from "lottie-react";
+import trophyAnimation from "@/public/animations/Trophy.json";
 
 interface Player {
     uid: string
@@ -126,7 +128,6 @@ export default function MultiplayerResultScreen({
                     playersArray = allPlayers.filter(player => {
                         return player && 
                                player.uid && 
-                               player.uid !== roomData.host?.uid &&
                                player.displayName
                     })
                     
@@ -224,7 +225,7 @@ export default function MultiplayerResultScreen({
 
                 // Hitung persentase benar
                 const correctAnswers = questionAnswers.filter(a => a.correct).length
-                const correctPercentage = (correctAnswers / totalAnswers) * 100
+                const correctPercentage = totalAnswers > 0 ? (correctAnswers / totalAnswers) * 100 : 0
 
                 // Rata-rata waktu jawab
                 const totalTime = questionAnswers.reduce((sum, a) => sum + (a.answerTime || 0), 0)
@@ -338,7 +339,7 @@ export default function MultiplayerResultScreen({
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-gray-50 to-blue-50 p-4">
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl">
             <div className="max-w-7xl mx-auto">
                 {/* Debug Info */}
                 <div className="mb-4 p-3 bg-gray-100 rounded-lg">
@@ -479,6 +480,10 @@ export default function MultiplayerResultScreen({
                                     {/* Podium Display */}
                                     {players.length >= 3 ? (
                                         <div className="relative mb-12">
+                                             {/* Lottie Animation for the Winner */}
+                                            <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-80 h-80 pointer-events-none">
+                                                <Lottie animationData={trophyAnimation} loop={true} />
+                                            </div>
                                             <div className="flex justify-center items-end space-x-4 max-w-4xl mx-auto">
                                                 {/* Second Place */}
                                                 {topThree[1] && (
@@ -545,8 +550,10 @@ export default function MultiplayerResultScreen({
                                         </div>
                                     ) : (
                                         <div className="mb-12 text-center py-8">
-                                            <div className="text-4xl mb-4">👑</div>
-                                            <h3 className="text-xl font-bold text-gray-700 mb-2">Juara Pertama</h3>
+                                            <div className="mx-auto w-60 h-60">
+                                                <Lottie animationData={trophyAnimation} loop={true} />
+                                            </div>
+                                            <h3 className="text-xl font-bold text-gray-700 mb-2 -mt-8">Juara Pertama</h3>
                                             {topThree[0] && (
                                                 <div className="inline-block bg-gradient-to-r from-yellow-50 to-yellow-100 border-2 border-yellow-300 rounded-xl p-6">
                                                     <div className="text-5xl mb-2">🥇</div>

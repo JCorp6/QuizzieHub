@@ -12,7 +12,8 @@ import {
   increment,
   deleteField,
   deleteDoc,
-  serverTimestamp // Tambahkan ini
+  serverTimestamp, // Tambahkan ini
+  runTransaction
 } from "firebase/firestore"
 import type { User } from "firebase/auth"
 import { db } from "./firebase"
@@ -429,37 +430,67 @@ export const resetPlayersForNextQuestion = async (roomId: string) => {
 }
 
 // ----------------------------------------------------
-// LEAVE ROOM - PERBAIKAN
+// LEAVE ROOM - FIXED: Host is reassigned, not deleted.
 // ----------------------------------------------------
 export const leaveMultiplayerRoom = async (roomId: string, userId: string) => {
+  const roomDocRef = doc(db, "multiplayer_rooms", roomId);
   try {
-    const roomDocRef = doc(db, "multiplayer_rooms", roomId)
-    const snapshot = await getDoc(roomDocRef)
-    
-    if (!snapshot.exists()) {
-      return // Room sudah tidak ada
-    }
-    
-    const room = snapshot.data()
-    
-    // Jika host yang keluar, hapus room
-    if (room.host.uid === userId) {
-      await deleteDoc(roomDocRef)
-      console.log(`Room ${roomId} deleted by host`)
-      return
-    }
-    
-    // Jika player yang keluar, hapus dari players
-    await updateDoc(roomDocRef, {
-      [`players.${userId}`]: deleteField(),
-      lastUpdated: serverTimestamp()
-    })
-    
+    await runTransaction(db, async (transaction) => {
+      const roomSnapshot = await transaction.get(roomDocRef);
+
+      if (!roomSnapshot.exists()) {
+        console.warn(`Attempted to leave a room (${roomId}) that does not exist.`);
+        return;
+      }
+
+      const room = roomSnapshot.data();
+      const players = room.players || {};
+      const isHostLeaving = room.host.uid === userId;
+
+      if (isHostLeaving) {
+        const remainingPlayerIds = Object.keys(players);
+
+        if (remainingPlayerIds.length > 0) {
+          // Promote the first available player to be the new host.
+          const newHostId = remainingPlayerIds[0];
+          const newHostData = players[newHostId];
+
+          const newHost = {
+            uid: newHostData.uid,
+            displayName: newHostData.displayName,
+          };
+
+          // Remove the newly promoted host from the players list.
+          const { [newHostId]: _, ...remainingPlayers } = players;
+
+          transaction.update(roomDocRef, {
+            host: newHost,
+            players: remainingPlayers,
+            lastUpdated: serverTimestamp(),
+          });
+          console.log(`Host ${userId} left room ${roomId}. New host is ${newHost.uid}.`);
+        } else {
+          // The host is the last person in the room, so delete it.
+          transaction.delete(roomDocRef);
+          console.log(`Host ${userId} was the last person in the room. Deleting room ${roomId}.`);
+        }
+      } else {
+        // A regular player is leaving.
+        if (players[userId]) {
+          // Just remove the player from the map.
+          transaction.update(roomDocRef, {
+            [`players.${userId}`]: deleteField(),
+            lastUpdated: serverTimestamp(),
+          });
+          console.log(`Player ${userId} left room ${roomId}.`);
+        }
+      }
+    });
   } catch (error) {
-    console.error("Error leaving room:", error)
-    throw error
+    console.error(`Error processing leave room (${roomId}) for user ${userId}:`, error);
+    throw error; // Re-throw the error to be handled by the caller.
   }
-}
+};
 
 // ----------------------------------------------------
 // LISTEN TO GAME START
@@ -604,3 +635,20 @@ export const listenToRoomChanges = (callback: (rooms: any[]) => void) => {
     return () => {}
   }
 }
+
+// ----------------------------------------------------
+// UPDATE PLAYER DISPLAY NAME - NEW FUNCTION
+// ----------------------------------------------------
+export const updatePlayerDisplayName = async (roomId: string, userId: string, newDisplayName: string) => {
+  try {
+    const roomDocRef = doc(db, "multiplayer_rooms", roomId);
+    const playerDisplayNamePath = `players.${userId}.displayName`;
+
+    await updateDoc(roomDocRef, {
+      [playerDisplayNamePath]: newDisplayName
+    });
+  } catch (error) {
+    console.error("Error updating player display name:", error);
+    throw error;
+  }
+};
