@@ -2,7 +2,7 @@
 .next/
 out/
 *.log
-
+.env.local
 # Node
 node_modules/
 npm-debug.log*
